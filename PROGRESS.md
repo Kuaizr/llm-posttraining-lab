@@ -5,9 +5,9 @@
 ## 当前状态
 
 - 当前章节：C00（学习中）
-- 当前唯一目标：完成 C00 的真实小模型 SFT 能力验证，并独立解释单步 smoke 的证据边界。
-- 下一步：学习者用一道独立选择题判断“一次 optimizer step 成功”能证明和不能证明什么。
-- 最近一次会话：2026-09-15，经明确授权完成 Qwen3.5-0.8B 单样本 LoRA 单步 GPU optimizer smoke；backward、参数更新及 adapter 保存重载通过。
+- 当前唯一目标：完成 C00 综合收尾复查，确认方法地图、环境证据和实验边界能够独立迁移。
+- 下一步：一次一道选择题复查 GRPO 同组全同 reward 时的 advantage 与更新信号。
+- 最近一次会话：2026-09-15，真实 Qwen3.5-0.8B LoRA 单步 GPU smoke 通过；学习者独立正确区分工程证据与效果证据，两题各 3/4。
 - 已确认背景：过去自写过 Transformers Trainer SFT；RTX 5070 Ti 16GB。
 - 已完成环境核验与独立项目环境：WSL2/Arch、uv Python 3.12.13、PyTorch/Hugging Face/TRL 栈和 RTX 5070 Ti 可用；系统 Python 未改动。
 - 存储约定：环境使用 `uv` 管理；正式仓库已复制到 `/mnt/d/llm-posttraining-lab`，后续虚拟环境、模型权重和模型缓存均放到 D 盘。C 盘源副本暂时保留以便回退。
@@ -84,6 +84,7 @@
 | IID/OOD、评测污染与归因 | 能正确计算 task success/loop rate 并识别工作流组合 OOD；但曾把同 500 case 的系统结果直接归因为 Qwen，且混淆 OOD/OOV；见 `reviews/2026-09-14_C00_eval-metrics.md` | 第 2、3 题答后明确答案；第 4 题无提示 | 独立设计先切分、后抽取代码库的 train/dev/test-OOD 方案 | 待复查 |
 | 全同 reward 与探索 | 原题回答“不知道”；看过答案后在新情境中独立选择 SFT bootstrap，并指出出现成功 rollout 后再切换 GRPO；见 `reviews/2026-09-14_C00_demo.md` | 原题明确答案；变式无提示 | 后续补查组内奖励差异、采样成本和 verifier 防投机边界 | 初步通过 |
 | 工具 SFT 的输入与监督边界 | 初次误认为 tool observation 也参与 loss；学习者独立完成正常 label 映射，validator 由 Codex 演示；见 `reviews/2026-09-15_C00_loss-mask.md` | 明确答案 + 实现演示；边界变式无提示 4/4 | 用新的多轮、失败工具轨迹复查 action/observation mask | 初步通过 |
+| 单步训练与效果证据边界 | 单步 Qwen LoRA smoke 后，能独立选择其只证明链路可更新/重载，并选择未训练 dev 上的前后同配置对照；见 `reviews/2026-09-15_C00_gpu-smoke.md` | 两道选择题无提示，各 3/4 | C01 实际定义 task success 与独立 dev 切分时复查 | 初步通过 |
 
 ## 实验登记
 
@@ -93,7 +94,7 @@
 | C00-HF-STACK-001 | C00 / 随机微型 GPT-2 配置 | `reports/environment.md`；`requirements/C00-hf-stack.lock` | SMOKE_ONLY | CPU SFTTrainer 1 step；loss 2.2742；2 个 LoRA 张量变化；adapter 保存；样本数 2 | 已迁移到真实 Qwen 单步 smoke |
 | C00-QWEN-INFER-001 | C00 / 三个固定 Qwen3.5 snapshot | `reports/environment.md`；`reports/model_selection_and_memory.md` | SMOKE_ONLY | 3 个 snapshot checksum PASS；0.8B Base logits/causal loss forward、0.8B/2B 短生成 PASS；无 backward | 后续训练链路见 C00-QWEN-LORA-STEP-001 |
 | C00-QWEN-MASK-001 | C00 / Qwen3.5-0.8B@2fc0636… tokenizer | `scripts/inspect_tokens.py`；`notes/C00_loss_mask.md`；`reviews/2026-09-15_C00_loss-mask.md` | SMOKE_ONLY | 固定工具轨迹 97 token、50 个有效 label；assistant 工具调用/最终回答受监督，tool observation 全部 `-100`；退出码 0 | 已作为 C00-QWEN-LORA-STEP-001 的输入检查 |
-| C00-QWEN-LORA-STEP-001 | C00 / Qwen3.5-0.8B@2fc0636… | `scripts/smoke_qwen_lora_step.py`；`reports/C00_qwen_lora_step.md`；adapter 位于 Git 忽略的 `runs/C00-QWEN-LORA-STEP-001/adapter/` | SMOKE_ONLY | 1 样本、97 token、50 labels、1 optimizer step；loss 0.921666；186 个非零梯度张量；adapter reload PASS；峰值 2387/2442MiB | 学习者独立解释证据边界；不自动增加训练步数 |
+| C00-QWEN-LORA-STEP-001 | C00 / Qwen3.5-0.8B@2fc0636… | `scripts/smoke_qwen_lora_step.py`；`reports/C00_qwen_lora_step.md`；adapter 位于 Git 忽略的 `runs/C00-QWEN-LORA-STEP-001/adapter/` | SMOKE_ONLY | 1 样本、97 token、50 labels、1 optimizer step；loss 0.921666；186 个非零梯度张量；adapter reload PASS；峰值 2387/2442MiB | 证据边界选择题 6/8；不自动增加训练步数 |
 
 ## 会话记录索引
 
@@ -105,7 +106,7 @@
 | 2026-09-14 / C00-eval-metrics | 定义端到端指标并区分 IID/OOD 与评测污染 | `reviews/2026-09-14_C00_eval-metrics.md`；`notes/C00_map.md` | 学习者独立完成指标计算和工作流 OOD 变式；污染边界及 IID/OOD 定义经明确讲解 | 尚不能独立设计无泄漏的任务族切分；CUDA 证据边界暂缓 | 独立写出先切分、后抽取代码库的最小 train/dev/test-OOD 方案 |
 | 2026-09-14 / C00-sft-env-prep | 提前准备真实 SFT 所需软件、模型和可复现入口 | `reports/environment.md`；`reports/model_selection_and_memory.md`；`requirements/C00-hf-stack.lock`；`scripts/env.sh` | Codex 在学习者授权下安装、下载和执行 smoke；不是学习者独立实现或真实训练效果 | 真实 Qwen backward/optimizer/LoRA 重载 NOT RUN；未安装优化 attention kernel | 学习者检查一个真实 SFT 样本的 token/labels/assistant mask |
 | 2026-09-15 / C00-loss-mask | 检查真实 Qwen 工具样本的 token、labels 与 assistant mask | `notes/C00_loss_mask.md`；`scripts/inspect_tokens.py`；`reviews/2026-09-15_C00_loss-mask.md` | 学习者独立实现正常 label 映射；Codex 演示边界保护和 validator；边界变式题独立 4/4 | 真实 Qwen backward/optimizer NOT RUN | 确认 0.8B 单样本 LoRA 单步 GPU smoke 的配置、预算与授权 |
-| 2026-09-15 / C00-qwen-lora-step | 验证真实 Qwen3.5-0.8B LoRA 最小训练链路 | `scripts/smoke_qwen_lora_step.py`；`reports/C00_qwen_lora_step.md` | Codex 按明确授权实现并执行；不是学习者独立训练实现，也不是效果实验 | 尚未独立解释证据边界；无多步训练和独立评测 | 用一道独立选择题判断单步 smoke 能与不能证明什么 |
+| 2026-09-15 / C00-qwen-lora-step | 验证真实 Qwen3.5-0.8B LoRA 最小训练链路 | `scripts/smoke_qwen_lora_step.py`；`reports/C00_qwen_lora_step.md`；`reviews/2026-09-15_C00_gpu-smoke.md` | Codex 按明确授权实现并执行；学习者独立完成两道证据边界选择题，各 3/4 | 无多步训练和独立效果评测；C00 综合复查未完成 | 复查 GRPO 同组全同 reward 时的 advantage 与更新信号 |
 
 ## 决策与偏离计划记录
 

@@ -8,7 +8,7 @@ status: LEARNING
 
 ## 当前只做一件事
 
-独立判断 Qwen3.5-0.8B 单样本 LoRA 单步 GPU smoke 能证明和不能证明什么。
+完成 C00 综合收尾复查；下一题检查 GRPO 同组全同 reward 时的 advantage 与更新信号。
 
 > [!warning] 证据边界
 > tokenizer/assistant mask、真实 backward、单次 optimizer update 和 adapter 重载已经通过；训练收敛与任务效果仍未评估。
@@ -18,6 +18,7 @@ status: LEARNING
 1. [[notes/C00_loss_mask|C00：工具 SFT 的输入与监督区域]]
 2. [[PROGRESS|学习进度与实验事实]]
 3. [[reports/C00_qwen_lora_step|真实 Qwen LoRA 单步实验报告]]
+4. [[reviews/2026-09-15_C00_gpu-smoke|单步 GPU smoke 审查与测验]]
 
 ## 已有材料
 

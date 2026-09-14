@@ -34,6 +34,15 @@
 结束时更新 PROGRESS.md，留下下一次唯一任务。
 ```
 
+当前这台 WSL2 机器已经建立 D 盘项目环境。进入正式仓库后可执行：
+
+```bash
+cd /mnt/d/llm-posttraining-lab
+source scripts/env.sh
+```
+
+实际版本、模型 revision 和 smoke test 证据见 `reports/environment.md` 与 `reports/model_selection_and_memory.md`。该入口只激活环境，不会自动下载模型或启动训练。
+
 ## 主路线
 
 | 章节 | 主要产出 |

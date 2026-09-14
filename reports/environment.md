@@ -1,7 +1,7 @@
 # C00 环境体检与安装方案
 
 > 日期：2026-09-14  
-> 当前状态：第一阶段环境创建与 PyTorch CUDA smoke test 已完成；模型下载与 GPU 训练均未执行。
+> 当前状态：PyTorch/Hugging Face 栈、随机微型 SFT dry run、三个固定模型 snapshot 和真实模型 GPU 推理 smoke 已完成；真实模型 backward、optimizer step 和正式训练均未执行。
 
 ## 1. 已确认事实
 
@@ -17,9 +17,9 @@
 | GPU | NVIDIA GeForce RTX 5070 Ti，16303 MiB；检查时可用 14830 MiB | `nvidia-smi --query-gpu=...` |
 | 驱动/UMD | Windows KMD 610.47；CUDA UMD 13.3 | `nvidia-smi` |
 | nvcc | 未安装/不可见 | `command -v nvcc`、`nvcc --version` |
-| 当前训练包 | torch、transformers、datasets、peft、trl、accelerate、bitsandbytes 均未安装 | Python `importlib.metadata` 查询 |
-| D 盘容量 | 总计约 753 GB，剩余约 605 GB | `df -h /mnt/d` |
-| 模型缓存 | 未发现 Hugging Face cache | 检查 `/home/kzer/.cache/huggingface` |
+| 当前训练包 | torch 2.14.0+cu130、torchvision 0.29.0+cu130、Transformers 5.17.0、Datasets 5.0.1、Accelerate 1.15.0、PEFT 0.20.0、TRL 1.13.0；未安装 bitsandbytes | `uv pip list --python .venv/bin/python`、导入 smoke |
+| D 盘容量 | 总计约 753 GB，第二阶段完成后剩余约 591 GB | `df -h /mnt/d`，2026-09-14 13:42 CST |
+| 模型缓存 | 三个固定 Qwen3.5 snapshot 位于 `/mnt/d/llm-posttraining-cache/huggingface/hub` | `hf cache verify` |
 
 `nvidia-smi` 成功只证明 WSL2 能看到 GPU 和驱动。没有 `nvcc` 不代表预编译 PyTorch wheel 无法使用；PyTorch CUDA 是否可用仍需安装后实际执行 kernel、backward 和 synchronize。
 
@@ -111,5 +111,87 @@ smoke_test=PASS
 
 - 操作系统、驱动可见性、GPU 型号、磁盘与候选软件组合：已核验。
 - PyTorch CUDA/kernel/backward：`SMOKE_ONLY`，结果 PASS；FP32/BF16 输出和梯度均 finite。
-- 模型 forward/backward、LoRA 保存重载：`NOT RUN`。
-- 当前已有最小 PyTorch CUDA 能力证据，但没有证据宣称 Transformers/TRL、模型或 LoRA 训练链路可用。
+- 随机微型 causal LM：CPU forward/backward、LoRA 保存重载、TRL SFT 1 个 optimizer step 均 PASS。
+- 真实 Qwen3.5：0.8B Base GPU forward、0.8B/2B 后训练版短生成、0.8B 未训练 LoRA 注入/保存/重载 PASS；真实模型 backward/optimizer step 仍为 `NOT RUN`。
+- 当前证据支持进入真实小模型 SFT 的下一步准备，但不支持宣称训练收敛、2B PPO 可运行或已获得效果提升。
+
+## 7. 第二阶段实际结果
+
+### 7.1 Hugging Face 栈
+
+在已有 D 盘 `.venv` 中通过 `uv` 安装稳定发布版；解析未替换 torch，只将 `fsspec` 从 2026.7.0 调整为 Datasets 兼容的 2026.6.0。随后按 Qwen3.5 官方模型卡补装匹配 cu130 的 torchvision 和 Pillow。
+
+```text
+python=3.12.13
+torch=2.14.0+cu130
+torchvision=0.29.0+cu130
+transformers=5.17.0
+datasets=5.0.1
+accelerate=1.15.0
+peft=0.20.0
+trl=1.13.0
+numpy=2.5.3
+pillow=12.3.0
+pytest=9.1.1
+```
+
+完整解析见 `requirements/C00-hf-stack.lock`。`.venv` apparent size 约 5.7GB。
+
+### 7.2 无下载 CPU smoke
+
+完全离线、随机初始化的两层 GPT-2 配置完成：
+
+- 内存 Dataset 构造；
+- causal LM loss 和 backward，loss finite；
+- LoRA 可训练参数存在；
+- adapter 保存为 `adapter_model.safetensors` 并成功重载；
+- `SFTConfig`、`DPOConfig`、`GRPOConfig` 导入。
+
+随后通过 `SFTTrainer` 对两条内存文本执行 1 个 CPU optimizer step：
+
+```text
+training_loss=2.274243116378784
+global_step=1
+changed_trainable_tensors=2
+adapter_saved=True
+```
+
+该结果只证明训练软件链路和一次参数更新可运行，不是模型效果实验。
+
+### 7.3 固定模型 snapshot
+
+| 模型 | revision | cache verify | apparent size |
+|---|---|---:|---:|
+| `Qwen/Qwen3.5-0.8B-Base` | `dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68` | 12 files PASS | 1.7GB |
+| `Qwen/Qwen3.5-0.8B` | `2fc06364715b967f1860aea9cf38778875588b17` | 13 files PASS | 1.7GB |
+| `Qwen/Qwen3.5-2B` | `15852e8c16360a2fea060d615a32b45270f8a8fc` | 13 files PASS | 4.3GB |
+
+下载中 Qwen3.5-2B 的 Xet 路径失速。核对进程后终止单个旧下载 PID，改用普通 HTTP 完成；完整 snapshot 校验通过后，删除了旧 Xet 留下且未被 snapshot 引用的一个 469MB `.incomplete` 缓存片段。
+
+### 7.4 真实模型 GPU smoke
+
+所有加载均使用固定本地 snapshot、BF16、`local_files_only=True`，没有训练：
+
+| 检查 | 结果 | 峰值 allocated | 峰值 reserved |
+|---|---|---:|---:|
+| Qwen3.5-0.8B Base，3-token forward | logits finite，shape `[1, 3, 248320]` | 1687.18MiB | 1704.0MiB |
+| Qwen3.5-0.8B Base，3-token causal loss forward | loss 10.39895，finite；`backward=False` | 1687.18MiB | 1704.0MiB |
+| Qwen3.5-0.8B，短 greedy generation | 输出 `OK` | 1687.68MiB | 1704.0MiB |
+| Qwen3.5-2B，短 greedy generation | 输出 `OK` | 4282.27MiB | 4288.0MiB |
+
+本地 `processor.apply_chat_template` 使用 `enable_thinking=False`；OpenAI-compatible API 示例中的嵌套 `chat_template_kwargs` 不能原样传给 processor。非 thinking 模板仍会插入一个空的 `<think>...</think>` 区段，这是当前官方模板的预期结构。
+
+Transformers 报告 `causal_conv1d` 与 `flash-linear-attention` 未安装，并正确回退到较慢的 PyTorch 实现。本阶段按项目规则不自动安装这些优化扩展；这不是正确性失败，但后续训练时间需要实测。
+
+## 8. 快速进入环境
+
+从正式仓库根目录执行：
+
+```bash
+source scripts/env.sh
+python -c "import torch, transformers, datasets, accelerate, peft, trl; print(torch.__version__, transformers.__version__, trl.__version__)"
+```
+
+`scripts/env.sh` 只设置本项目的 D 盘缓存路径并激活现有 `.venv`，不下载模型、不启动训练。
+
+脚本还导出固定 snapshot 路径：`QWEN35_08B_BASE_PATH`、`QWEN35_08B_PATH`、`QWEN35_2B_PATH`，避免学习代码依赖浮动 `main` 或再次联网解析 revision。

@@ -1,0 +1,33 @@
+# Credentials and machine-local settings
+.env
+.env.*
+!.env.example
+*credentials*.json
+*service-account*.json
+
+# Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Large/local/sensitive experiment outputs: version manifests and reports instead
+data/
+runs/
+models/
+checkpoints/
+.cache/
+wandb/
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+
+# OS files
+.DS_Store
+Thumbs.db

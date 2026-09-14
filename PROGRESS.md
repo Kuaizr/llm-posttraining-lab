@@ -1,13 +1,13 @@
 # 学习进度与实验事实记录
 
-> 学习与环境核验已开始，尚未运行实验。由学习者与 Codex 在每次会话结束时更新。不要把计划当完成记录。
+> 学习与环境核验已开始，尚未运行正式效果实验。由学习者与 Codex 在每次会话结束时更新。不要把计划当完成记录。
 
 ## 当前状态
 
 - 当前章节：C00（学习中）
-- 当前唯一目标：为真实小模型 SFT 建立可复现环境，同时保持模型下载、模型推理、随机模型训练与真实模型训练的证据边界。
-- 下一步：学习者亲自检查一个 Qwen3.5-0.8B SFT 样本的 token、labels 和 assistant mask，确认监督区域后再运行真实 GPU optimizer step。
-- 最近一次会话：2026-09-14，Codex 按学习者授权完成 C00 SFT 环境、固定模型下载和 smoke test 准备。
+- 当前唯一目标：完成 C00 的真实小模型 SFT 能力验证，同时保持 tokenizer 检查、模型前向与 optimizer step 的证据边界。
+- 下一步：确认 Qwen3.5-0.8B 单样本 LoRA 单步 GPU optimizer smoke 的配置、预算与授权。
+- 最近一次会话：2026-09-15，学习者完成正常 label 映射；Codex 演示 validator 后，本地 Qwen 工具轨迹的 token/assistant mask/labels 端到端检查通过。
 - 已确认背景：过去自写过 Transformers Trainer SFT；RTX 5070 Ti 16GB。
 - 已完成环境核验与独立项目环境：WSL2/Arch、uv Python 3.12.13、PyTorch/Hugging Face/TRL 栈和 RTX 5070 Ti 可用；系统 Python 未改动。
 - 存储约定：环境使用 `uv` 管理；正式仓库已复制到 `/mnt/d/llm-posttraining-lab`，后续虚拟环境、模型权重和模型缓存均放到 D 盘。C 盘源副本暂时保留以便回退。
@@ -18,7 +18,7 @@
 
 | 章节 | 主题 | 学习状态 | 执行程度 | 效果证据 | 证据/缺口 |
 |---|---|---|---|---|---|
-| C00 | 全貌与环境 | LEARNING | SMOKE_ONLY | NOT_EVALUATED | HF/TRL 栈和随机微型 LoRA SFT 1 step 已通过；Qwen3.5 0.8B Base forward、0.8B/2B 生成及真实 0.8B LoRA 注入/保存/重载通过；真实 Qwen backward/optimizer NOT RUN；知识地图非独立完成 |
+| C00 | 全貌与环境 | LEARNING | SMOKE_ONLY | NOT_EVALUATED | HF/TRL 栈和随机微型 LoRA SFT 1 step 已通过；真实 Qwen 工具样本 97 token/50 labels mask 检查通过；0.8B Base forward、0.8B/2B 生成及真实 0.8B LoRA 注入/保存/重载通过；真实 Qwen backward/optimizer NOT RUN；validator 与知识地图非独立完成 |
 | C01 | 任务、工具、verifier、eval | NOT_STARTED | NOT_RUN | NOT_EVALUATED | 无 |
 | C02 | 合成数据工厂 | NOT_STARTED | NOT_RUN | NOT_EVALUATED | 无 |
 | C03 | Tool-use SFT | NOT_STARTED | NOT_RUN | NOT_EVALUATED | 无 |
@@ -50,7 +50,7 @@
 | 项目 | 实际值/证据 |
 |---|---|
 | 操作系统/运行方式 | Arch Linux on WSL2；`uname -a`、`/etc/os-release`，2026-09-13 |
-| 工作目录/项目根 | 正式工作目录为 `/mnt/d/llm-posttraining-lab`；逐文件 SHA-256 对比迁移一致；当前不是 Git 仓库；C 盘源副本暂留 |
+| 工作目录/项目根 | 正式工作目录为 `/mnt/d/llm-posttraining-lab`；Git 分支 `master` 已关联 GitHub `origin/master`；C 盘源副本暂留 |
 | Python 可执行路径与版本 | 系统 `/usr/sbin/python` 为 3.14.5 且无 pip；uv 0.11.19；已存在 uv 管理的 CPython 3.12.13，拟用于项目环境 |
 | NVIDIA 驱动/GPU 检测 | `nvidia-smi`：RTX 5070 Ti 16303 MiB；KMD 610.47；CUDA UMD 13.3 |
 | PyTorch/CUDA/设备能力 | `torch==2.14.0+cu130`；`torch.version.cuda=13.0`；CUDA 可用；RTX 5070 Ti CC `(12,0)`；wheel 含 `sm_120`；FP32/BF16 forward/backward finite；峰值约 65.38 MiB |
@@ -83,14 +83,16 @@
 | 独立评测指标 | 能选择 GRPO，但无法定义 task success 与 invalid tool call rate | 明确答案 | C00 map 审查时要求写清分子/分母 | 待复查 |
 | IID/OOD、评测污染与归因 | 能正确计算 task success/loop rate 并识别工作流组合 OOD；但曾把同 500 case 的系统结果直接归因为 Qwen，且混淆 OOD/OOV；见 `reviews/2026-09-14_C00_eval-metrics.md` | 第 2、3 题答后明确答案；第 4 题无提示 | 独立设计先切分、后抽取代码库的 train/dev/test-OOD 方案 | 待复查 |
 | 全同 reward 与探索 | 原题回答“不知道”；看过答案后在新情境中独立选择 SFT bootstrap，并指出出现成功 rollout 后再切换 GRPO；见 `reviews/2026-09-14_C00_demo.md` | 原题明确答案；变式无提示 | 后续补查组内奖励差异、采样成本和 verifier 防投机边界 | 初步通过 |
+| 工具 SFT 的输入与监督边界 | 初次误认为 tool observation 也参与 loss；学习者独立完成正常 label 映射，validator 由 Codex 演示；见 `reviews/2026-09-15_C00_loss-mask.md` | 明确答案 + 实现演示；边界变式无提示 4/4 | 用新的多轮、失败工具轨迹复查 action/observation mask | 初步通过 |
 
 ## 实验登记
 
 | 实验 ID | 章节/父 checkpoint | 配置与报告路径 | 执行程度 | 真实结果与样本数 | 下一步 |
 |---|---|---|---|---|---|
 | C00-TORCH-SMOKE-001 | C00 / 无模型 | `reports/environment.md`；`requirements/C00-torch-cu130.lock` | SMOKE_ONLY | CUDA available；CC 12.0；FP32/BF16 forward/backward finite；峰值 65.38 MiB | 学习者解释证据边界；第二阶段另行授权 |
-| C00-HF-STACK-001 | C00 / 随机微型 GPT-2 配置 | `reports/environment.md`；`requirements/C00-hf-stack.lock` | SMOKE_ONLY | CPU SFTTrainer 1 step；loss 2.2742；2 个 LoRA 张量变化；adapter 保存；样本数 2 | 用真实 Qwen 前先由学习者检查 token/labels/mask |
-| C00-QWEN-INFER-001 | C00 / 三个固定 Qwen3.5 snapshot | `reports/environment.md`；`reports/model_selection_and_memory.md` | SMOKE_ONLY | 3 个 snapshot checksum PASS；0.8B Base logits/causal loss forward、0.8B/2B 短生成 PASS；无 backward | 真实训练前先做样本监督区域验收 |
+| C00-HF-STACK-001 | C00 / 随机微型 GPT-2 配置 | `reports/environment.md`；`requirements/C00-hf-stack.lock` | SMOKE_ONLY | CPU SFTTrainer 1 step；loss 2.2742；2 个 LoRA 张量变化；adapter 保存；样本数 2 | 在真实 Qwen 上执行受限 LoRA 单步 optimizer smoke |
+| C00-QWEN-INFER-001 | C00 / 三个固定 Qwen3.5 snapshot | `reports/environment.md`；`reports/model_selection_and_memory.md` | SMOKE_ONLY | 3 个 snapshot checksum PASS；0.8B Base logits/causal loss forward、0.8B/2B 短生成 PASS；无 backward | 在已验收 mask 的样本上执行受限 LoRA 单步 optimizer smoke |
+| C00-QWEN-MASK-001 | C00 / Qwen3.5-0.8B@2fc0636… tokenizer | `scripts/inspect_tokens.py`；`notes/C00_loss_mask.md`；`reviews/2026-09-15_C00_loss-mask.md` | SMOKE_ONLY | 固定工具轨迹 97 token、50 个有效 label；assistant 工具调用/最终回答受监督，tool observation 全部 `-100`；退出码 0 | 确认真实 LoRA 单步 GPU smoke 配置与授权 |
 
 ## 会话记录索引
 
@@ -101,6 +103,7 @@
 | 2026-09-14 / C00-torch-smoke | 建立最小 PyTorch CUDA 能力证据 | `reports/environment.md`；`requirements/C00-torch-cu130.lock` | Codex 执行获授权安装与 smoke test；非学习者独立实现 | Transformers/TRL、模型 forward/backward、LoRA 保存重载均 NOT RUN | 学习者解释 smoke test 的证据边界 |
 | 2026-09-14 / C00-eval-metrics | 定义端到端指标并区分 IID/OOD 与评测污染 | `reviews/2026-09-14_C00_eval-metrics.md`；`notes/C00_map.md` | 学习者独立完成指标计算和工作流 OOD 变式；污染边界及 IID/OOD 定义经明确讲解 | 尚不能独立设计无泄漏的任务族切分；CUDA 证据边界暂缓 | 独立写出先切分、后抽取代码库的最小 train/dev/test-OOD 方案 |
 | 2026-09-14 / C00-sft-env-prep | 提前准备真实 SFT 所需软件、模型和可复现入口 | `reports/environment.md`；`reports/model_selection_and_memory.md`；`requirements/C00-hf-stack.lock`；`scripts/env.sh` | Codex 在学习者授权下安装、下载和执行 smoke；不是学习者独立实现或真实训练效果 | 真实 Qwen backward/optimizer/LoRA 重载 NOT RUN；未安装优化 attention kernel | 学习者检查一个真实 SFT 样本的 token/labels/assistant mask |
+| 2026-09-15 / C00-loss-mask | 检查真实 Qwen 工具样本的 token、labels 与 assistant mask | `notes/C00_loss_mask.md`；`scripts/inspect_tokens.py`；`reviews/2026-09-15_C00_loss-mask.md` | 学习者独立实现正常 label 映射；Codex 演示边界保护和 validator；边界变式题独立 4/4 | 真实 Qwen backward/optimizer NOT RUN | 确认 0.8B 单样本 LoRA 单步 GPU smoke 的配置、预算与授权 |
 
 ## 决策与偏离计划记录
 

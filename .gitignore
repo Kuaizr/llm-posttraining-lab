@@ -31,3 +31,6 @@ wandb/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Machine-local Obsidian UI, plugins, workspace and sync state
+.obsidian/

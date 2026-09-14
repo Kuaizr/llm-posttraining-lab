@@ -8,15 +8,16 @@ status: LEARNING
 
 ## 当前只做一件事
 
-确认 Qwen3.5-0.8B 单样本 LoRA 单步 GPU optimizer smoke 的配置、预算与授权。
+独立判断 Qwen3.5-0.8B 单样本 LoRA 单步 GPU smoke 能证明和不能证明什么。
 
 > [!warning] 证据边界
-> tokenizer/assistant mask 检查已经通过，但真实 Qwen backward、optimizer step 和训练效果均未执行。
+> tokenizer/assistant mask、真实 backward、单次 optimizer update 和 adapter 重载已经通过；训练收敛与任务效果仍未评估。
 
 ## 今天的入口
 
 1. [[notes/C00_loss_mask|C00：工具 SFT 的输入与监督区域]]
 2. [[PROGRESS|学习进度与实验事实]]
+3. [[reports/C00_qwen_lora_step|真实 Qwen LoRA 单步实验报告]]
 
 ## 已有材料
 

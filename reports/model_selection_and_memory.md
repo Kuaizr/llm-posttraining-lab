@@ -74,7 +74,7 @@
 - 是否同时驻留 policy/reference/reward/value。
 - 是否真实执行 forward、backward、optimizer step、保存和重载。
 
-没有这些实测前，不宣称 2B PPO、GRPO 或任何配置“能在 16GB 稳定运行”。
+这些项目已在 2026-09-15 的 0.8B LoRA 单步 smoke 中记录，见 `reports/C00_qwen_lora_step.md`。结果只支持该单步配置可运行；仍不宣称 2B PPO、GRPO 或长期训练“能在 16GB 稳定运行”。
 
 ## 0.8B 实际结构与 LoRA 兼容性
 
@@ -106,3 +106,19 @@ save_reload=PASS
 ```
 
 这只证明该 target 集合能注入、保存和重载；最终是否同时训练 attention、线性注意力和 MLP，仍需由学习者结合任务、显存和消融解释。
+
+## 0.8B LoRA 单步训练实测
+
+在相同语言投影 target 上使用 r=4、BF16、97-token 单样本和 batch 1 完成一次真实 optimizer update：
+
+```text
+trainable_parameters=2,705,664 (约占总参数 0.3172%)
+loss=0.9216660261154175
+nonzero_gradient_tensors=186
+changed_trainable_tensors=372
+peak_allocated=2387.39MiB
+peak_reserved=2442.00MiB
+adapter_reload=PASS
+```
+
+单步峰值说明 0.8B 短序列 LoRA 在本机有显存余量，但没有覆盖多步 optimizer state 稳态、不同长度、评测生成或 RL 多模型驻留，不能外推为这些场景的容量保证。

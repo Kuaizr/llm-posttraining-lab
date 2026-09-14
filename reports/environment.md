@@ -1,7 +1,7 @@
 # C00 环境体检与安装方案
 
 > 日期：2026-09-14  
-> 当前状态：PyTorch/Hugging Face 栈、随机微型 SFT dry run、三个固定模型 snapshot 和真实模型 GPU 推理 smoke 已完成；真实模型 backward、optimizer step 和正式训练均未执行。
+> 当前状态：PyTorch/Hugging Face 栈、随机微型 SFT dry run、三个固定模型 snapshot、真实模型 GPU 推理 smoke，以及 Qwen3.5-0.8B LoRA 单步训练 smoke 已完成；正式数据训练与效果实验均未执行。
 
 ## 1. 已确认事实
 
@@ -112,8 +112,8 @@ smoke_test=PASS
 - 操作系统、驱动可见性、GPU 型号、磁盘与候选软件组合：已核验。
 - PyTorch CUDA/kernel/backward：`SMOKE_ONLY`，结果 PASS；FP32/BF16 输出和梯度均 finite。
 - 随机微型 causal LM：CPU forward/backward、LoRA 保存重载、TRL SFT 1 个 optimizer step 均 PASS。
-- 真实 Qwen3.5：0.8B Base GPU forward、0.8B/2B 后训练版短生成、0.8B 未训练 LoRA 注入/保存/重载 PASS；真实模型 backward/optimizer step 仍为 `NOT RUN`。
-- 当前证据支持进入真实小模型 SFT 的下一步准备，但不支持宣称训练收敛、2B PPO 可运行或已获得效果提升。
+- 真实 Qwen3.5：0.8B Base GPU forward、0.8B/2B 后训练版短生成 PASS；0.8B 后训练版已完成真实 LoRA backward、单次 optimizer update 和 adapter 保存重载。
+- 当前证据支持真实小模型 SFT 的最小软件/硬件链路可运行，但不支持宣称训练收敛、任务效果提升、2B PPO 可运行或任何长期配置稳定。
 
 ## 7. 第二阶段实际结果
 
@@ -182,6 +182,23 @@ adapter_saved=True
 本地 `processor.apply_chat_template` 使用 `enable_thinking=False`；OpenAI-compatible API 示例中的嵌套 `chat_template_kwargs` 不能原样传给 processor。非 thinking 模板仍会插入一个空的 `<think>...</think>` 区段，这是当前官方模板的预期结构。
 
 Transformers 报告 `causal_conv1d` 与 `flash-linear-attention` 未安装，并正确回退到较慢的 PyTorch 实现。本阶段按项目规则不自动安装这些优化扩展；这不是正确性失败，但后续训练时间需要实测。
+
+### 7.5 真实 Qwen3.5-0.8B LoRA 单步训练
+
+2026-09-15 获学习者明确授权后，使用固定后训练 snapshot、已验收的 97-token 工具轨迹、BF16、SDPA、batch 1 和语言层 LoRA（r=4）执行恰好一次 backward 与 optimizer step：
+
+```text
+loss=0.9216660261154175
+effective_labels=50
+trainable_parameters=2,705,664
+nonzero_gradient_tensors=186
+changed_trainable_tensors=372
+adapter_reload=PASS
+peak_allocated=2387.39MiB
+peak_reserved=2442.00MiB
+```
+
+完整配置、命令、adapter hash 和证据限制见 `reports/C00_qwen_lora_step.md`。这是 `SMOKE_ONLY / NOT_EVALUATED`，不是训练效果实验。
 
 ## 8. 快速进入环境
 
